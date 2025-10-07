@@ -51,19 +51,36 @@ except Exception as e:
     st.stop()
 
 
-# --- Custom Advice Function (Basic, non-personalized version) ---
-def display_basic_advice():
-    """Displays simple advice for high-risk patients."""
-    st.markdown("---")
-    st.markdown("<h3 style='color: #B22222; text-align: center;'>⚠️ Crucial Lifestyle Advice</h3>", unsafe_allow_html=True)
-    st.markdown("""
-    **Consultation is Mandatory.** Given the high-risk prediction, seek immediate consultation with a cardiologist.
+# --- Custom Personalized Advice Function (Updated) ---
+def display_personalized_advice(chol, trestbps, fbs):
+    """Generates advice based on specific user input values for high-risk cases."""
     
-    * **Diet:** Focus on a Mediterranean-style diet. Drastically reduce sodium (salt) intake to under 1,500 mg/day. Limit saturated fats and added sugars.
-    * **Activity:** Aim for at least 30 minutes of moderate-intensity exercise (like brisk walking) most days of the week, after medical clearance.
-    * **Monitoring:** Regularly monitor blood pressure and blood sugar levels.
-    """)
+    st.markdown("---")
+    st.markdown("<h3 style='color: #B22222; text-align: center;'>🚨 Personalized Cardiac Health Recommendations</h3>", unsafe_allow_html=True)
+    st.markdown("**Consultation is Mandatory.** Given the high-risk prediction, seek immediate consultation with a cardiologist.", unsafe_allow_html=True)
 
+    st.markdown("#### Focus Areas:")
+    
+    # 1. Cholesterol Advice
+    if chol > 200:
+        st.error(f"**High Cholesterol ({chol} mg/dL):** Your level exceeds the recommended limit. Immediately focus on a low-fat, low-cholesterol diet rich in fiber. Limit red meats and processed foods.")
+    elif chol > 160:
+        st.warning(f"**Elevated Cholesterol ({chol} mg/dL):** While not critically high, this level contributes to risk. Maintain a healthy, heart-friendly diet and increase omega-3 fatty acids.")
+    
+    # 2. Blood Pressure Advice
+    if trestbps >= 140:
+        st.error(f"**High Blood Pressure ({trestbps} mmHg):** This level is categorized as Hypertension. Consult your doctor about medication and drastically reduce sodium (salt) intake to under 1,500 mg/day.")
+    elif trestbps >= 120 and trestbps < 140:
+        st.warning(f"**Elevated Blood Pressure ({trestbps} mmHg):** This is considered elevated. Implement stress management techniques and consistent aerobic exercise.")
+
+    # 3. Fasting Blood Sugar (Diabetes) Advice
+    if fbs == 1:
+        st.error(f"**High Fasting Blood Sugar (> 120 mg/dL):** This indicates a potential pre-diabetic or diabetic state. Strictly control carbohydrate intake and monitor blood sugar levels daily.")
+    else:
+        st.info("**Fasting Blood Sugar:** Currently within a lower-risk range.")
+
+    st.markdown("---")
+    st.markdown("**General Action Plan:** Aim for 30 minutes of moderate exercise daily (after medical clearance) and stop smoking immediately if applicable.")
 
 # --- Streamlit UI Setup ---
 
@@ -177,9 +194,10 @@ if st.button('Analyze Patient Risk', use_container_width=True, type="primary"):
         </div>
         """, unsafe_allow_html=True)
     
-    # --- DISPLAY BASIC ADVICE IF HIGH RISK ---
+    # --- DISPLAY PERSONALIZED ADVICE IF HIGH RISK ---
     if prediction == 1:
-        display_basic_advice()
+        # Pass the key input values to the personalized function
+        display_personalized_advice(chol, trestbps, fbs)
 
 
 st.markdown("---")
