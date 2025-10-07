@@ -7,8 +7,28 @@ import os
 MODEL_FILE = 'model.pkl'
 SCALER_FILE = 'scaler.pkl'
 
-# Streamlit App Title and Configuration 
+# Set the page title/icon
 st.set_page_config(page_title="Early Heart Stroke Prediction App", layout="centered")
+
+# --- SEO METADATA INJECTION ---
+def inject_seo_tags():
+    """Injects meta tags for search engine optimization (SEO)."""
+    st.markdown(
+        f"""
+        <head>
+            <meta name="description" content="An advanced machine learning tool for early prediction and risk analysis of heart stroke using clinical data. Developed by Rithish5.">
+            <meta name="keywords" content="heart stroke prediction, cardiovascular risk, machine learning, medical app, Streamlit, data science, stroke risk analyzer">
+            <meta property="og:title" content="Early Heart Stroke Prediction App">
+            <meta property="og:description" content="Predict heart stroke risk instantly using an ML model based on 13 clinical features.">
+        </head>
+        """,
+        unsafe_allow_html=True,
+    )
+
+# Inject the SEO tags at the very start
+inject_seo_tags()
+# --- END SEO INJECTION ---
+
 
 # --- Load Model and Scaler ---
 model = None
@@ -62,6 +82,12 @@ st.markdown("""
         margin-top: 30px;
         text-align: center;
         box-shadow: 0 8px 16px 0 rgba(0,0,0,0.2);
+    }
+    .risk-score {
+        font-size: 48px;
+        font-weight: 900;
+        margin: 10px 0;
+        display: block;
     }
     </style>
     """, unsafe_allow_html=True)
@@ -127,23 +153,27 @@ if st.button('Analyze Patient Risk', use_container_width=True, type="primary"):
     prediction = model.predict(scaled_input)[0]
     prediction_proba = model.predict_proba(scaled_input)[0]
 
+    # Calculate Risk Score (Probability of having heart disease)
+    risk_score = prediction_proba[1] * 100
+    
     # 4. Display Result
     if prediction == 1:
-        risk_level = "High Risk - Heart Disease Predicted"
+        risk_level = "High Risk"
         color = "#B22222" # Red
-        message = f"**{risk_level}** (Target=1). The patient has a high probability of heart disease."
-        proba_message = f"Confidence (Disease): **{prediction_proba[1]*100:.2f}%**"
+        score_text = f"{risk_score:.0f}%"
     else:
-        risk_level = "Low Risk - No Heart Disease Predicted"
+        risk_level = "Low Risk"
         color = "#4CAF50" # Green
-        message = f"**{risk_level}** (Target=0). The patient is predicted to be free from heart disease."
-        proba_message = f"Confidence (No Disease): **{prediction_proba[0]*100:.2f}%**"
+        # Display probability of NO disease for low risk
+        score_text = f"{(100 - risk_score):.0f}%"
 
     st.markdown(f"""
         <div class="result-box" style="background-color: #ffffff; border: 3px solid {color};">
-            <h3 style="color: {color}; margin-bottom: 10px;">{risk_level}</h3>
-            <p style="font-size: 18px;">{message}</p>
-            <p style="font-size: 16px; font-style: italic; color: #555;">{proba_message}</p>
+            <h3 style="color: {color}; margin-bottom: 5px;">{risk_level} Prediction</h3>
+            <span class="risk-score" style="color: {color};">{score_text}</span>
+            <p style="font-size: 16px; margin-top: 5px;">
+                { 'Based on the features, the model predicts a high probability of heart disease.' if prediction == 1 else 'Based on the features, the model predicts a low probability of heart disease.' }
+            </p>
         </div>
         """, unsafe_allow_html=True)
     
