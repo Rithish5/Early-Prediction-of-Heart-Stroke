@@ -2,10 +2,14 @@ import streamlit as st
 import pandas as pd
 import pickle
 import os
+import matplotlib.pyplot as plt
+import seaborn as sns
+import numpy as np
 
 # --- CONFIGURATION ---
 MODEL_FILE = 'model.pkl'
 SCALER_FILE = 'scaler.pkl'
+DATA_FILE = 'raw_merged_heart_dataset.csv' # Added data file for visualization
 
 # Set the page title/icon
 st.set_page_config(page_title="Early Heart Stroke Prediction App", layout="centered")
@@ -30,12 +34,13 @@ inject_seo_tags()
 # --- END SEO INJECTION ---
 
 
-# --- Load Model and Scaler ---
+# --- Load Model, Scaler, and Data ---
 model = None
 scaler = None
+df_full = None # Variable to hold the entire dataset for visualization
 
 try:
-    # Check if files exist before trying to open
+    # Load Model and Scaler
     if not os.path.exists(MODEL_FILE) or not os.path.exists(SCALER_FILE):
         st.error("Error: Model files ('model.pkl' and 'scaler.pkl') not found.")
         st.warning("Please run trained_model.py to generate these files.")
@@ -46,12 +51,51 @@ try:
     with open(SCALER_FILE, 'rb') as scaler_file:
         scaler = pickle.load(scaler_file)
 
+    # Load Full Dataset for Visualization
+    if os.path.exists(DATA_FILE):
+        # We need to clean the data just like we did in the training script
+        df_raw = pd.read_csv(DATA_FILE, na_values=['?'])
+        
+        # Simple Imputation (Must match the one used during training)
+        imputer = pickle.load(open('imputer.pkl', 'rb')) if os.path.exists('imputer.pkl') else None
+        
+        # If imputer is not saved, we will attempt to create a simple one based on your training script
+        if imputer is None:
+            from sklearn.impute import SimpleImputer
+            imputer = SimpleImputer(missing_values=np.nan, strategy='most_frequent')
+            
+            # Since we don't have the original X columns, we fit and transform the whole df
+            # to make sure 'age' is available later. Note: This assumes DATA_FILE is the one used in train_model_final.py
+            # For demonstration, we'll try to use the most frequent strategy across the relevant columns.
+            
+            # Use columns expected in your training script
+            feature_cols = ['age', 'sex', 'cp', 'trestbps', 'chol', 'fbs', 'restecg', 'thalachh', 'exang', 'oldpeak', 'slope', 'ca', 'thal']
+            
+            # Filter and impute only the features used for modeling
+            df_features = df_raw[feature_cols].copy()
+            
+            # Re-fit the imputer (ideally this should be loaded from a saved file, but for deployment we re-fit on raw data)
+            imputer.fit(df_features)
+            df_imputed = imputer.transform(df_features)
+            
+            df_full = pd.DataFrame(df_imputed, columns=feature_cols)
+            df_full['target'] = df_raw['target'].apply(lambda x: 1 if x > 0 else 0)
+            
+        else:
+            # If the imputer was saved, load it and use it to clean the data
+            df_full = df_raw.copy()
+            # Clean here if needed. For simplicity, we assume we only need the 'age' column which is usually clean.
+            df_full['target'] = df_raw['target'].apply(lambda x: 1 if x > 0 else 0) # Ensure target is binary
+
+    else:
+        st.warning(f"Data file '{DATA_FILE}' not found. Data Visualization will be disabled.")
+        
 except Exception as e:
-    st.error(f"An error occurred while loading model files: {e}")
+    st.error(f"An error occurred during file loading: {e}")
     st.stop()
 
 
-# --- Custom Personalized Advice Function (Updated) ---
+# --- Custom Personalized Advice Function ---
 def display_personalized_advice(chol, trestbps, fbs):
     """Generates advice based on specific user input values for high-risk cases."""
     
@@ -82,58 +126,55 @@ def display_personalized_advice(chol, trestbps, fbs):
     st.markdown("---")
     st.markdown("**General Action Plan:** Aim for 30 minutes of moderate exercise daily (after medical clearance) and stop smoking immediately if applicable.")
 
-# --- Streamlit UI Setup with ADVANCED STYLING ---
+
+# --- Data Visualization Function ---
+def display_data_visualization(age, sex, df):
+    """Shows the patient's age relative to the dataset."""
+    st.subheader("📊 Contextual Data Visualization")
+    st.info("Compare the patient's age distribution against the entire dataset to understand their risk context.")
+    
+    # Ensure 'age' is a numeric type for the plot
+    df['age'] = pd.to_numeric(df['age'], errors='coerce')
+    
+    # Create the figure
+    fig, ax = plt.subplots(figsize=(8, 4))
+    
+    # Plot histogram of age distribution, split by outcome (target)
+    sns.histplot(data=df, x='age', hue='target', kde=True, bins=20, palette={0: '#0077b6', 1: '#B22222'}, ax=ax)
+    
+    # Mark the patient's age
+    ax.axvline(age, color='black', linestyle='--', linewidth=2, label=f"Patient Age: {age}")
+    
+    ax.set_title('Age Distribution of Dataset (Risk vs. No Risk)')
+    ax.set_xlabel('Age (Years)')
+    ax.set_ylabel('Count')
+    ax.legend(['High Risk', 'Low Risk', f'Patient Age: {age}'])
+    
+    # Display the plot in Streamlit
+    st.pyplot(fig)
+
+
+# --- Streamlit UI Setup (Reverted to Original Colors) ---
 
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
-    
-    body {
-        font-family: 'Roboto', sans-serif;
-    }
-
-    /* Custom Background (Subtle Gradient) */
-    .stApp {
-        background: linear-gradient(135deg, #f0f9ff 0%, #c9e8fb 100%); /* Light Blue Gradient */
-    }
-
-    /* Custom Header */
+    /* Reverted styling to be closer to Streamlit defaults */
     .big-font {
-        font-family: 'Roboto', sans-serif;
-        font-size:36px !important;
-        font-weight: 700;
-        color: #004d99; /* Darker blue for contrast */
+        font-size:32px !important;
+        font-weight: bold;
+        color: #0077b6; /* Original Blue */
         text-align: center;
-        padding-top: 15px;
-        padding-bottom: 20px;
-        border-bottom: 3px solid #0077b6;
-        margin-bottom: 20px;
+        padding-bottom: 10px;
     }
-    
-    /* Input Form Container Card */
-    .st-emotion-cache-12quk7f { /* This targets the main content wrapper */
-        background-color: #ffffff; 
-        padding: 20px;
-        border-radius: 15px;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
-    }
-
-    /* Result Box Styling (Kept strong) */
     .result-box {
-        padding: 30px;
-        border-radius: 15px;
+        padding: 25px;
+        border-radius: 12px;
         margin-top: 30px;
         text-align: center;
-        box-shadow: 0 8px 16px 0 rgba(0,0,0,0.3);
-        background-color: #ffffff; /* Ensure white background for high contrast */
-        transition: transform 0.3s ease;
-    }
-    .result-box:hover {
-        transform: translateY(-5px);
+        box-shadow: 0 8px 16px 0 rgba(0,0,0,0.2);
     }
     .risk-score {
-        font-family: 'Roboto', sans-serif;
-        font-size: 56px;
+        font-size: 48px;
         font-weight: 900;
         margin: 10px 0;
         display: block;
@@ -152,7 +193,8 @@ col1, col2, col3 = st.columns(3)
 
 with col1:
     age = st.slider('Age', 20, 100, 50, help="Age in years.")
-    sex = st.selectbox('Sex', options=[(1, 'Male'), (0, 'Female')], format_func=lambda x: x[1])[0]
+    sex_input = st.selectbox('Sex', options=[(1, 'Male'), (0, 'Female')], format_func=lambda x: x[1])
+    sex = sex_input[0]
     cp = st.selectbox('Chest Pain Type (cp)', options=[
         (0, 'Asymptomatic (0)'), (1, 'Typical Angina (1)'), 
         (2, 'Atypical Angina (2)'), (3, 'Non-Anginal Pain (3)')
@@ -230,6 +272,11 @@ if st.button('Analyze Patient Risk', use_container_width=True, type="primary"):
     if prediction == 1:
         # Pass the key input values to the personalized function
         display_personalized_advice(chol, trestbps, fbs)
+
+    # --- DISPLAY VISUALIZATION ---
+    if df_full is not None:
+        st.markdown("<br><br>", unsafe_allow_html=True) # Add spacing
+        display_data_visualization(age, sex, df_full.copy())
 
 
 st.markdown("---")
