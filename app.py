@@ -12,7 +12,8 @@ SCALER_FILE = 'scaler.pkl'
 DATA_FILE = 'raw_merged_heart_dataset.csv' # Added data file for visualization
 
 # Set the page title/icon
-st.set_page_config(page_title="Early Heart Stroke Prediction App", layout="centered")
+# We set the layout to 'wide' for the dashboard to have more space
+st.set_page_config(page_title="Early Heart Stroke Prediction App", layout="wide")
 
 # --- SEO METADATA INJECTION ---
 def inject_seo_tags():
@@ -53,42 +54,34 @@ try:
 
     # Load Full Dataset for Visualization
     if os.path.exists(DATA_FILE):
-        # We need to clean the data just like we did in the training script
         df_raw = pd.read_csv(DATA_FILE, na_values=['?'])
         
-        # Simple Imputation (Must match the one used during training)
-        imputer = pickle.load(open('imputer.pkl', 'rb')) if os.path.exists('imputer.pkl') else None
+        # Simple imputation logic (assuming no separate imputer file exists, 
+        # so we perform a basic imputation for plotting)
+        imputer = None
+        if os.path.exists('imputer.pkl'):
+             imputer = pickle.load(open('imputer.pkl', 'rb'))
         
-        # If imputer is not saved, we will attempt to create a simple one based on your training script
+        from sklearn.impute import SimpleImputer
         if imputer is None:
-            from sklearn.impute import SimpleImputer
             imputer = SimpleImputer(missing_values=np.nan, strategy='most_frequent')
             
-            # Since we don't have the original X columns, we fit and transform the whole df
-            # to make sure 'age' is available later. Note: This assumes DATA_FILE is the one used in train_model_final.py
-            # For demonstration, we'll try to use the most frequent strategy across the relevant columns.
-            
-            # Use columns expected in your training script
-            feature_cols = ['age', 'sex', 'cp', 'trestbps', 'chol', 'fbs', 'restecg', 'thalachh', 'exang', 'oldpeak', 'slope', 'ca', 'thal']
-            
-            # Filter and impute only the features used for modeling
-            df_features = df_raw[feature_cols].copy()
-            
-            # Re-fit the imputer (ideally this should be loaded from a saved file, but for deployment we re-fit on raw data)
-            imputer.fit(df_features)
-            df_imputed = imputer.transform(df_features)
-            
-            df_full = pd.DataFrame(df_imputed, columns=feature_cols)
-            df_full['target'] = df_raw['target'].apply(lambda x: 1 if x > 0 else 0)
-            
-        else:
-            # If the imputer was saved, load it and use it to clean the data
-            df_full = df_raw.copy()
-            # Clean here if needed. For simplicity, we assume we only need the 'age' column which is usually clean.
-            df_full['target'] = df_raw['target'].apply(lambda x: 1 if x > 0 else 0) # Ensure target is binary
+        feature_cols = ['age', 'sex', 'cp', 'trestbps', 'chol', 'fbs', 'restecg', 'thalachh', 'exang', 'oldpeak', 'slope', 'ca', 'thal']
+        df_features = df_raw[feature_cols].copy()
+        
+        # Fit and transform (if not fit before)
+        try:
+            df_imputed = imputer.fit_transform(df_features)
+        except:
+             # If fit fails, try transforming based on existing fit (safer for deployment)
+             df_imputed = imputer.transform(df_features)
 
+        df_full = pd.DataFrame(df_imputed, columns=feature_cols)
+        # Ensure target is binary (0 for Low Risk, 1 for High Risk)
+        df_full['target'] = df_raw['target'].apply(lambda x: 1 if x > 0 else 0)
+        
     else:
-        st.warning(f"Data file '{DATA_FILE}' not found. Data Visualization will be disabled.")
+        st.warning(f"Data file '{DATA_FILE}' not found. Data Visualization will be limited.")
         
 except Exception as e:
     st.error(f"An error occurred during file loading: {e}")
@@ -127,42 +120,70 @@ def display_personalized_advice(chol, trestbps, fbs):
     st.markdown("**General Action Plan:** Aim for 30 minutes of moderate exercise daily (after medical clearance) and stop smoking immediately if applicable.")
 
 
-# --- Data Visualization Function ---
-def display_data_visualization(age, sex, df):
-    """Shows the patient's age relative to the dataset."""
-    st.subheader("📊 Contextual Data Visualization")
-    st.info("Compare the patient's age distribution against the entire dataset to understand their risk context.")
+# --- Dashboard Visualization Function (New and Improved) ---
+def display_data_dashboard(age, df):
+    """Shows multiple charts for data exploration."""
+    st.markdown("## 📊 Data Analytics Dashboard")
+    st.info("Explore the dataset's characteristics to understand the risk factors contextually.")
     
-    # Ensure 'age' is a numeric type for the plot
+    # Ensure 'age' is numeric
     df['age'] = pd.to_numeric(df['age'], errors='coerce')
     
-    # Create the figure
-    fig, ax = plt.subplots(figsize=(8, 4))
+    col_dash1, col_dash2 = st.columns(2)
     
-    # Plot histogram of age distribution, split by outcome (target)
-    sns.histplot(data=df, x='age', hue='target', kde=True, bins=20, palette={0: '#0077b6', 1: '#B22222'}, ax=ax)
+    # --- Chart 1: Age Distribution Histogram (from previous update) ---
+    with col_dash1:
+        fig1, ax1 = plt.subplots(figsize=(10, 5))
+        sns.histplot(data=df, x='age', hue='target', kde=True, bins=20, palette={0: '#0077b6', 1: '#B22222'}, ax=ax1)
+        ax1.axvline(age, color='black', linestyle='--', linewidth=2, label=f"Patient Age: {age}")
+        ax1.set_title('Age Distribution of Dataset (Risk vs. No Risk)')
+        ax1.set_xlabel('Age (Years)')
+        ax1.set_ylabel('Count')
+        st.pyplot(fig1)
+
+    # --- Chart 2: Risk Factor Means by Outcome ---
+    with col_dash2:
+        risk_cols = ['chol', 'trestbps', 'thalachh']
+        df_mean = df.groupby('target')[risk_cols].mean().T
+        
+        fig2, ax2 = plt.subplots(figsize=(10, 5))
+        df_mean.plot(kind='bar', ax=ax2, color=['#0077b6', '#B22222'])
+        ax2.set_title('Average Key Factors by Outcome')
+        ax2.set_xlabel('Risk Factor')
+        ax2.set_ylabel('Average Value')
+        ax2.legend(['Low Risk (0)', 'High Risk (1)'])
+        plt.xticks(rotation=0)
+        st.pyplot(fig2)
+
+    # --- Chart 3: Gender and Chest Pain (cp) Distribution ---
+    st.markdown("### Categorical Feature Analysis")
+    fig3, ax3 = plt.subplots(figsize=(10, 5))
     
-    # Mark the patient's age
-    ax.axvline(age, color='black', linestyle='--', linewidth=2, label=f"Patient Age: {age}")
+    # Map numerical categories to labels for better readability on the chart
+    df['cp_label'] = df['cp'].map({0: 'Asymptomatic', 1: 'Typical Angina', 
+                                   2: 'Atypical Angina', 3: 'Non-Anginal'})
+    df['sex_label'] = df['sex'].map({1: 'Male', 0: 'Female'})
+
+    # Create the count plot
+    sns.countplot(x='cp_label', hue='target', data=df, palette={0: '#0077b6', 1: '#B22222'}, ax=ax3)
     
-    ax.set_title('Age Distribution of Dataset (Risk vs. No Risk)')
-    ax.set_xlabel('Age (Years)')
-    ax.set_ylabel('Count')
-    ax.legend(['High Risk', 'Low Risk', f'Patient Age: {age}'])
-    
-    # Display the plot in Streamlit
-    st.pyplot(fig)
+    ax3.set_title('Chest Pain Type vs. Risk Outcome')
+    ax3.set_xlabel('Chest Pain Type (cp)')
+    ax3.set_ylabel('Count')
+    ax3.legend(title='Outcome', labels=['Low Risk (0)', 'High Risk (1)'])
+    plt.xticks(rotation=15)
+    st.pyplot(fig3)
 
 
 # --- Streamlit UI Setup (Reverted to Original Colors) ---
 
 st.markdown("""
     <style>
-    /* Reverted styling to be closer to Streamlit defaults */
+    /* Ensured default Streamlit colors are used but kept the result box styling */
     .big-font {
         font-size:32px !important;
         font-weight: bold;
-        color: #0077b6; /* Original Blue */
+        color: #0077b6; /* Streamlit Primary Color (Default Blue) */
         text-align: center;
         padding-bottom: 10px;
     }
@@ -274,9 +295,11 @@ if st.button('Analyze Patient Risk', use_container_width=True, type="primary"):
         display_personalized_advice(chol, trestbps, fbs)
 
     # --- DISPLAY VISUALIZATION ---
+    st.markdown("---")
     if df_full is not None:
-        st.markdown("<br><br>", unsafe_allow_html=True) # Add spacing
-        display_data_visualization(age, sex, df_full.copy())
+        display_data_dashboard(age, df_full.copy())
+    else:
+        st.warning("Cannot display full dashboard: Data file ('raw_merged_heart_dataset.csv') not found.")
 
 
 st.markdown("---")
