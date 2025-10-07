@@ -82,26 +82,58 @@ def display_personalized_advice(chol, trestbps, fbs):
     st.markdown("---")
     st.markdown("**General Action Plan:** Aim for 30 minutes of moderate exercise daily (after medical clearance) and stop smoking immediately if applicable.")
 
-# --- Streamlit UI Setup ---
+# --- Streamlit UI Setup with ADVANCED STYLING ---
 
 st.markdown("""
     <style>
-    .big-font {
-        font-size:32px !important;
-        font-weight: bold;
-        color: #0077b6; /* Changed color for distinction */
-        text-align: center;
-        padding-bottom: 10px;
+    @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap');
+    
+    body {
+        font-family: 'Roboto', sans-serif;
     }
+
+    /* Custom Background (Subtle Gradient) */
+    .stApp {
+        background: linear-gradient(135deg, #f0f9ff 0%, #c9e8fb 100%); /* Light Blue Gradient */
+    }
+
+    /* Custom Header */
+    .big-font {
+        font-family: 'Roboto', sans-serif;
+        font-size:36px !important;
+        font-weight: 700;
+        color: #004d99; /* Darker blue for contrast */
+        text-align: center;
+        padding-top: 15px;
+        padding-bottom: 20px;
+        border-bottom: 3px solid #0077b6;
+        margin-bottom: 20px;
+    }
+    
+    /* Input Form Container Card */
+    .st-emotion-cache-12quk7f { /* This targets the main content wrapper */
+        background-color: #ffffff; 
+        padding: 20px;
+        border-radius: 15px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Result Box Styling (Kept strong) */
     .result-box {
-        padding: 25px;
-        border-radius: 12px;
+        padding: 30px;
+        border-radius: 15px;
         margin-top: 30px;
         text-align: center;
-        box-shadow: 0 8px 16px 0 rgba(0,0,0,0.2);
+        box-shadow: 0 8px 16px 0 rgba(0,0,0,0.3);
+        background-color: #ffffff; /* Ensure white background for high contrast */
+        transition: transform 0.3s ease;
+    }
+    .result-box:hover {
+        transform: translateY(-5px);
     }
     .risk-score {
-        font-size: 48px;
+        font-family: 'Roboto', sans-serif;
+        font-size: 56px;
         font-weight: 900;
         margin: 10px 0;
         display: block;
