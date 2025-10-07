@@ -68,4 +68,4 @@ pip install -r requirements.txt
 
 Run the Application
 streamlit run app.py
-# Access the application in your browser at http://localhost:8501
+# Access the application in your browser at https://early-prediction-of-heart-stroke-rithishss27032005.streamlit.app/
